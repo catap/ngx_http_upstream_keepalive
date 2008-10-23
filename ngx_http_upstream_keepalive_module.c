@@ -54,7 +54,7 @@ static char *ngx_http_upstream_keepalive(ngx_conf_t *cf, ngx_command_t *cmd,
 static ngx_command_t  ngx_http_upstream_keepalive_commands[] = {
 
     { ngx_string("keepalive"),
-      NGX_HTTP_UPS_CONF|NGX_CONF_NOARGS,
+      NGX_HTTP_UPS_CONF|NGX_CONF_NOARGS|NGX_CONF_TAKE1,
       ngx_http_upstream_keepalive,
       0,
       0,
@@ -370,7 +370,7 @@ ngx_http_upstream_keepalive(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         if (ngx_strncmp(value[i].data, "cached=", 7) == 0) {
             n = ngx_atoi(&value[i].data[7], value[i].len - 7);
 
-            if (n == NGX_ERROR) {
+            if (n == NGX_ERROR || n == 0) {
                 goto invalid;
             }
 
