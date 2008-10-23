@@ -8,10 +8,12 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+
 typedef struct {
     ngx_queue_t                        queue;
     ngx_connection_t                  *connection;
 } ngx_http_upstream_keepalive_cache_t;
+
 
 typedef struct {
     ngx_uint_t                         max_cached;
@@ -23,6 +25,7 @@ typedef struct {
     ngx_http_upstream_init_peer_pt     original_init_peer;
 
 } ngx_http_upstream_keepalive_srv_conf_t;
+
 
 typedef struct {
     ngx_http_upstream_keepalive_srv_conf_t  *conf;
@@ -44,7 +47,6 @@ static void ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc,
 
 static void ngx_http_upstream_keepalive_dummy_handler(ngx_event_t *ev);
 static void ngx_http_upstream_keepalive_close_handler(ngx_event_t *ev);
-
 
 static void *ngx_http_upstream_keepalive_create_conf(ngx_conf_t *cf);
 static char *ngx_http_upstream_keepalive(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -178,7 +180,7 @@ ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
     ngx_http_upstream_keepalive_cache_t      *item;
 
     ngx_queue_t       *q;
-    ngx_connection_t   *c;
+    ngx_connection_t  *c;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get keepalive peer");
