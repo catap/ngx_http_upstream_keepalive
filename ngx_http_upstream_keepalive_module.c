@@ -224,17 +224,29 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
                    "free keepalive peer");
 
     if (!(state & NGX_PEER_FAILED)
-        && pc->connection != NULL
-        && !ngx_queue_empty(&kp->conf->free))
+        && pc->connection != NULL)
     {
         c = pc->connection;
 
-        q = ngx_queue_head(&kp->conf->free);
-        ngx_queue_remove(q);
+        if (ngx_queue_empty(&kp->conf->free)) {
 
-        item = ngx_queue_data(q, ngx_http_upstream_keepalive_cache_t, queue);
+            q = ngx_queue_last(&kp->conf->cache);
+            ngx_queue_remove(q);
+
+            item = ngx_queue_data(q, ngx_http_upstream_keepalive_cache_t,
+                                  queue);
+
+            ngx_close_connection(item->connection);
+
+        } else {
+            q = ngx_queue_head(&kp->conf->free);
+            ngx_queue_remove(q);
+
+            item = ngx_queue_data(q, ngx_http_upstream_keepalive_cache_t,
+                                  queue);
+        }
+
         item->connection = c;
-
         ngx_queue_insert_head(&kp->conf->cache, q);
 
         pc->connection = NULL;
