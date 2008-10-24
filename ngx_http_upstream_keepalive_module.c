@@ -10,16 +10,6 @@
 
 
 typedef struct {
-    ngx_queue_t                        queue;
-    ngx_connection_t                  *connection;
-
-    socklen_t                          socklen;
-    struct sockaddr_storage            sockaddr;
-
-} ngx_http_upstream_keepalive_cache_t;
-
-
-typedef struct {
     ngx_uint_t                         max_cached;
     ngx_uint_t                         single;       /* unsigned:1 */
 
@@ -41,6 +31,18 @@ typedef struct {
     ngx_event_free_peer_pt             original_free_peer;
 
 } ngx_http_upstream_keepalive_peer_data_t;
+
+
+typedef struct {
+    ngx_http_upstream_keepalive_srv_conf_t  *conf;
+
+    ngx_queue_t                        queue;
+    ngx_connection_t                  *connection;
+
+    socklen_t                          socklen;
+    struct sockaddr_storage            sockaddr;
+
+} ngx_http_upstream_keepalive_cache_t;
 
 
 static ngx_int_t ngx_http_upstream_init_keepalive_peer(ngx_http_request_t *r,
@@ -137,6 +139,7 @@ ngx_http_upstream_init_keepalive(ngx_conf_t *cf,
 
     for (i = 0; i < kcf->max_cached; i++) {
         ngx_queue_insert_head(&kcf->free, &cached[i].queue);
+        cached[i].conf = kcf;
     }
 
     return NGX_OK;
@@ -305,7 +308,7 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
         c->write->handler = ngx_http_upstream_keepalive_dummy_handler;
         c->read->handler = ngx_http_upstream_keepalive_close_handler;
 
-        c->data = kp->conf;
+        c->data = item;
         c->idle = 1;
         c->log = ngx_cycle->log;
         c->read->log = ngx_cycle->log;
@@ -333,33 +336,18 @@ ngx_http_upstream_keepalive_close_handler(ngx_event_t *ev)
     ngx_http_upstream_keepalive_srv_conf_t  *conf;
     ngx_http_upstream_keepalive_cache_t     *item;
 
-    ngx_queue_t       *q, *cache;
     ngx_connection_t  *c;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0,
                    "keepalive close handler");
 
     c = ev->data;
-    conf = c->data;
+    item = c->data;
+    conf = item->conf;
 
-    cache = &conf->cache;
-
-    for (q = ngx_queue_head(cache);
-         q != ngx_queue_sentinel(cache);
-         q = ngx_queue_next(q))
-    {
-        item = ngx_queue_data(q, ngx_http_upstream_keepalive_cache_t, queue);
-
-        if (item->connection == c) {
-            ngx_queue_remove(q);
-            ngx_close_connection(c);
-            return;
-        }
-    }
-
-    ngx_log_error(NGX_LOG_ALERT, ev->log, 0,
-                  "keepalive close handler: unknown connection %p", c);
-    ngx_close_connection(c);
+    ngx_queue_remove(&item->queue);
+    ngx_close_connection(item->connection);
+    ngx_queue_insert_head(&conf->free, &item->queue);
 }
 
 
