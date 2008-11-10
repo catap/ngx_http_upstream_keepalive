@@ -275,6 +275,9 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     {
         c = pc->connection;
 
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+                       "free keepalive peer: saving connection %p", c);
+
         if (ngx_queue_empty(&kp->conf->free)) {
 
             q = ngx_queue_last(&kp->conf->cache);
