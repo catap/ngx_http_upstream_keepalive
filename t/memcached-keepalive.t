@@ -20,7 +20,7 @@ select STDOUT; $| = 1;
 eval { require Cache::Memcached; };
 plain(skip_all => 'Cache::Memcached not installed') if $@;
 
-my $t = Test::Nginx->new()->has('rewrite')->has_daemon('memcached')->plan(10)
+my $t = Test::Nginx->new()->has('rewrite')->has_daemon('memcached')->plan(16)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 master_process off;
@@ -105,6 +105,7 @@ my $memd2 = Cache::Memcached->new(servers => [ '127.0.0.1:8082' ]);
 
 $memd1->set('/', 'SEE-THIS');
 $memd2->set('/', 'SEE-THIS');
+$memd1->set('/big', 'X' x 1000000);
 
 my $total = $memd1->stats()->{total}->{total_connections};
 
@@ -118,6 +119,26 @@ like(http_get('/'), qr/SEE-THIS/, 'keepalive memcached request again');
 
 is($memd1->stats()->{total}->{total_connections}, $total + 1,
 	'only one connection used');
+
+# Since nginx doesn't read all data from connection in some situations (head
+# requests, post_action, errors writing to client) we have to close such
+# connections.  Check if we really do close them.
+
+$total = $memd1->stats()->{total}->{total_connections};
+
+unlike(http_head('/'), qr/SEE-THIS/, 'head request');
+like(http_get('/'), qr/SEE-THIS/, 'get after head');
+
+is($memd1->stats()->{total}->{total_connections}, $total + 1,
+	'head request closes connection');
+
+$total = $memd1->stats()->{total}->{total_connections};
+
+unlike(http_head('/big'), qr/XXX/, 'big head');
+like(http_get('/'), qr/SEE-THIS/, 'get after big head');
+
+is($memd1->stats()->{total}->{total_connections}, $total + 1,
+	'big head request closes connection');
 
 # two backends with 'single' option - should establish only one connection
 

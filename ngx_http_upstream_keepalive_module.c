@@ -25,10 +25,14 @@ typedef struct {
 typedef struct {
     ngx_http_upstream_keepalive_srv_conf_t  *conf;
 
+    ngx_http_upstream_t               *upstream;
+
     void                              *data;
 
     ngx_event_get_peer_pt              original_get_peer;
     ngx_event_free_peer_pt             original_free_peer;
+
+    ngx_uint_t                         failed;       /* unsigned:1 */
 
 } ngx_http_upstream_keepalive_peer_data_t;
 
@@ -169,6 +173,7 @@ ngx_http_upstream_init_keepalive_peer(ngx_http_request_t *r,
     }
 
     kp->conf = kcf;
+    kp->upstream = r->upstream;
     kp->data = r->upstream->peer.data;
     kp->original_get_peer = r->upstream->peer.get;
     kp->original_free_peer = r->upstream->peer.free;
@@ -193,6 +198,8 @@ ngx_http_upstream_get_keepalive_peer(ngx_peer_connection_t *pc, void *data)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "get keepalive peer");
+
+    kp->failed = 0;
 
     /* single pool of cached connections */
 
@@ -264,14 +271,50 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
     ngx_http_upstream_keepalive_peer_data_t  *kp = data;
     ngx_http_upstream_keepalive_cache_t      *item;
 
-    ngx_queue_t       *q;
-    ngx_connection_t  *c;
+    ngx_uint_t            status;
+    ngx_queue_t          *q;
+    ngx_connection_t     *c;
+    ngx_http_upstream_t  *u;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                    "free keepalive peer");
 
-    if (!(state & NGX_PEER_FAILED)
-        && pc->connection != NULL)
+    /* remember failed state - peer.free() may be called more than once */
+
+    if (state & NGX_PEER_FAILED) {
+        kp->failed = 1;
+    }
+
+    /*
+     * cache valid connections
+     *
+     * For memcached this means status either 404 or 200.  For status 200 we
+     * should also check if all response body was read (u->length == 0) and
+     * make sure that u->length is valid (we use u->header_sent flag to test
+     * this).  Memcached is the only supported protocol for now.
+     *
+     * Some notes on other possibilities (incomplete):
+     *
+     * fastcgi: u->pipe->upstream_done should be sufficient
+     *
+     * proxy buffered: u->pipe->upstream_done, 304 replies, replies to head
+     * requests (see RFC 2616, 4.4 Message Length)
+     *
+     * proxy unbuffered: 200 as for memcached (with u->length == 0 and
+     * header_sent), 304, replies to head requests
+     *
+     * subrequest_in_memory: won't work as of now
+     *
+     * TODO: move this logic to protocol modules (NGX_PEER_KEEPALIVE?)
+     */
+
+    u = kp->upstream;
+    status = u->headers_in.status_n;
+
+    if (!kp->failed
+        && pc->connection != NULL
+        && (status == NGX_HTTP_NOT_FOUND
+            || (status == NGX_HTTP_OK && u->header_sent && u->length == 0)))
     {
         c = pc->connection;
 
