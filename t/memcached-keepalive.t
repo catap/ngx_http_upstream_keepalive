@@ -94,9 +94,26 @@ http {
 
 EOF
 
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081');
-$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082');
+if (`memcached -h` =~ /repcached/) {
+	# repcached patches adds additional listen socket memcached
+	# that should be different too
+
+	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081',
+		'-X', '8091');
+	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082',
+		'-X', '8092');
+
+} else {
+	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081');
+	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082');
+}
+
 $t->run();
+
+$t->waitforsocket('127.0.0.1:8081')
+	or die "Unable to start memcached";
+$t->waitforsocket('127.0.0.1:8082')
+	or die "Unable to start second memcached";
 
 ###############################################################################
 
