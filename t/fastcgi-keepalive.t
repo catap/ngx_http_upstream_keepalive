@@ -56,12 +56,13 @@ $t->run();
 
 ###############################################################################
 
+{
+local $TODO = 'needs experimental patches';
+local $SIG{__WARN__} = sub {};
+
 like(http_get('/'), qr/SEE-THIS/, 'fastcgi request');
 like(http_get('/redir'), qr/302/, 'fastcgi redirect');
 like(http_get('/'), qr/^request: 3$/m, 'fastcgi third request');
-
-{
-local $TODO = 'needs experimental patches';
 
 like(http_get('/single'), qr/^connection: 1$/m, 'single connection used');
 
@@ -75,8 +76,10 @@ unlike(http_head('/head'), qr/SEE-THIS/, 'no data in HEAD');
 
 {
 local $TODO = 'needs experimental patches';
+local $SIG{__WARN__} = sub {};
 
 like(http_get('/after'), qr/^connection: 2$/m, 'new connection after HEAD');
+
 }
 
 ###############################################################################
