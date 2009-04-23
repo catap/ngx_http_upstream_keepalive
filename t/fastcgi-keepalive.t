@@ -117,7 +117,18 @@ sub fastcgi_respond($$) {
 		length($body), 0));
 	$h->{socket}->write($body);
 
+	# write some text to stdout and stderr splitted over multiple network
+	# packets to test if we correctly set pipe length in various places
+
+	my $tt = "test text, just for test";
+
+	$h->{socket}->write(pack("CCnnCx", $h->{version}, 6, $h->{id},
+		length($tt . $tt), 0) . $tt);
 	select(undef, undef, undef, 0.1);
+	$h->{socket}->write($tt . pack("CC", $h->{version}, 7));
+	select(undef, undef, undef, 0.1);
+	$h->{socket}->write(pack("nnCx", $h->{id}, length($tt), 0));
+	$h->{socket}->write($tt);
 
 	# close stdout
 	$h->{socket}->write(pack("CCnnCx", $h->{version}, 6, $h->{id}, 0, 0));
