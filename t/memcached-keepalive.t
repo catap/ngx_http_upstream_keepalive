@@ -94,19 +94,26 @@ http {
 
 EOF
 
-if (`memcached -h` =~ /repcached/) {
+my $memhelp = `memcached -h`;
+my @memopts1 = ();
+my @memopts2 = ();
+
+if ($memhelp =~ /repcached/) {
 	# repcached patches adds additional listen socket memcached
 	# that should be different too
 
-	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081',
-		'-X', '8091');
-	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082',
-		'-X', '8092');
-
-} else {
-	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081');
-	$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082');
+	push @memopts1, '-X', '8091';
+	push @memopts2, '-X', '8092';
 }
+if ($memhelp =~ /-U/) {
+	# UDP ports no longer off by default in memcached 1.2.7+
+
+	push @memopts1, '-U', '0';
+	push @memopts2, '-U', '0';
+}
+
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8081', @memopts1);
+$t->run_daemon('memcached', '-l', '127.0.0.1', '-p', '8082', @memopts2);
 
 $t->run();
 
