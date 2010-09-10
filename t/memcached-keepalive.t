@@ -23,19 +23,16 @@ plan(skip_all => 'Cache::Memcached not installed') if $@;
 my $t = Test::Nginx->new()->has('rewrite')->has_daemon('memcached')->plan(16)
 	->write_file_expand('nginx.conf', <<'EOF');
 
+%%TEST_GLOBALS%%
+
 master_process off;
 daemon         off;
 
 events {
-    worker_connections  1024;
 }
 
 http {
-    access_log    off;
-
-    client_body_temp_path  %%TESTDIR%%/client_body_temp;
-    fastcgi_temp_path      %%TESTDIR%%/fastcgi_temp;
-    proxy_temp_path        %%TESTDIR%%/proxy_temp;
+    %%TEST_GLOBALS_HTTP%%
 
     upstream memd {
         server 127.0.0.1:8081;
@@ -61,7 +58,7 @@ http {
     }
 
     server {
-        listen       localhost:8080;
+        listen       127.0.0.1:8080;
         server_name  localhost;
 
         location / {
