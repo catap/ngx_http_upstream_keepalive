@@ -386,12 +386,29 @@ ngx_http_upstream_keepalive_close_handler(ngx_event_t *ev)
     ngx_http_upstream_keepalive_srv_conf_t  *conf;
     ngx_http_upstream_keepalive_cache_t     *item;
 
+    int                n;
+    char               buf[1];
     ngx_connection_t  *c;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, ev->log, 0,
                    "keepalive close handler");
 
     c = ev->data;
+
+    n = recv(c->fd, buf, 1, MSG_PEEK);
+
+    if (n == -1 && ngx_socket_errno == NGX_EAGAIN) {
+        /* stale event */
+
+        if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
+            goto close;
+        }
+
+        return;
+    }
+
+close:
+
     item = c->data;
     conf = item->conf;
 
