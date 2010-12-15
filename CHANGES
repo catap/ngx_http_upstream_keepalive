@@ -1,4 +1,11 @@
 
+Changes with upstream keepalive module 0.4 (2010-12-15):
+
+    *) Bugfix: the "[alert] ... open socket ... left in connection ..."
+       messages were logged on nginx worker process gracefull exit for
+       each cached connection; the bug had appeared in 0.3.
+
+
 Changes with upstream keepalive module 0.3 (2010-09-14):
 
     *) Bugfix: cached connections might be closed needlessly.
