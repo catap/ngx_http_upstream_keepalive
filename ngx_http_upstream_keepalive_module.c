@@ -309,10 +309,13 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
      */
 
     u = kp->upstream;
+    c = pc->connection;
     status = u->headers_in.status_n;
 
     if (!kp->failed
-        && pc->connection != NULL
+        && c != NULL
+        && !c->read->timedout
+        && !c->write->timedout
 #if (NGX_UPSTREAM_KEEPALIVE_PATCHED)
         && u->keepalive)
 #else
@@ -320,8 +323,6 @@ ngx_http_upstream_free_keepalive_peer(ngx_peer_connection_t *pc, void *data,
             || (status == NGX_HTTP_OK && u->header_sent && u->length == 0)))
 #endif
     {
-        c = pc->connection;
-
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
                        "free keepalive peer: saving connection %p", c);
 
